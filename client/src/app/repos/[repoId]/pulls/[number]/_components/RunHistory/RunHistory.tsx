@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
+import { Badge, Icon, CircularScore, RunCostBadge, LocalTime, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit } from "@devdigest/shared";
 
 /**
@@ -139,7 +139,7 @@ export function RunHistory({
               <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>{c.author}</span>
               {c.committed_at && (
                 <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-                  {new Date(c.committed_at).toLocaleTimeString()}
+                  <LocalTime iso={c.committed_at} mode="time" />
                 </span>
               )}
             </div>
@@ -194,9 +194,17 @@ export function RunHistory({
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}
+              {settled && (
+                <RunCostBadge
+                  variant="detailed"
+                  costUsd={r.cost_usd}
+                  tokensIn={r.tokens_in ?? 0}
+                  tokensOut={r.tokens_out ?? 0}
+                />
+              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-              {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
+              {r.ran_at && <span><LocalTime iso={r.ran_at} mode="time" /></span>}
             </div>
             <button
               type="button"

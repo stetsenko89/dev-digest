@@ -129,6 +129,22 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
+    // Latest-run COST per PR for the COST column. Mirrors the pattern above:
+    // one IN-query over agent_runs ordered desc(ranAt), first-seen-per-PR wins.
+    const latestRunCostByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({ prId: t.agentRuns.prId, costUsd: t.agentRuns.costUsd })
+        .from(t.agentRuns)
+        .where(inArray(t.agentRuns.prId, prIds))
+        .orderBy(desc(t.agentRuns.ranAt));
+      for (const rr of runRows) {
+        if (rr.prId && !latestRunCostByPr.has(rr.prId)) {
+          latestRunCostByPr.set(rr.prId, rr.costUsd ?? null);
+        }
+      }
+    }
+
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
@@ -153,6 +169,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: latestRunCostByPr.get(r.id) ?? null,
       };
     });
   });

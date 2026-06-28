@@ -92,7 +92,8 @@
       "size": "Size",
       "score": "Score",
       "status": "Status",
-      "updated": "Updated"
+      "updated": "Updated",
+      "cost": "Cost"
     },
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",

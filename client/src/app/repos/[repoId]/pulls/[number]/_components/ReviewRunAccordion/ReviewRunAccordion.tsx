@@ -6,7 +6,7 @@
 "use client";
 
 import React from "react";
-import { Icon, Badge } from "@devdigest/ui";
+import { Icon, Badge, LocalTime } from "@devdigest/ui";
 import type { ReviewRecord, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
@@ -17,11 +17,6 @@ const VERDICT_COLOR: Record<string, string> = {
   comment: "var(--warn)",
   approve: "var(--ok)",
 };
-
-function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
-}
 
 export function ReviewRunAccordion({
   review,
@@ -104,7 +99,7 @@ export function ReviewRunAccordion({
           </Badge>
         )}
         <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          {formatWhen(review.created_at)}
+          <LocalTime iso={review.created_at} mode="datetime" />
         </span>
         <button
           onClick={(e) => {
