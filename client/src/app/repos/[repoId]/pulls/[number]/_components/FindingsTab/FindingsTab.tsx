@@ -71,6 +71,14 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // Map run_id → run summary so each review-run header can show the token/cost
+  // figures, which live on the run (prRuns), not on the ReviewRecord.
+  const runById = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const run of prRuns ?? []) m.set(run.run_id, run);
+    return m;
+  }, [prRuns]);
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -162,6 +170,7 @@ export function FindingsTab({
             defaultOpen={i === 0}
             repoFullName={repoFullName}
             headSha={headSha}
+            run={review.run_id ? runById.get(review.run_id) ?? null : null}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
           />

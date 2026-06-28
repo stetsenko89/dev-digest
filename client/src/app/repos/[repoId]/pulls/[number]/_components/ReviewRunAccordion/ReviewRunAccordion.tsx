@@ -6,8 +6,8 @@
 "use client";
 
 import React from "react";
-import { Icon, Badge, LocalTime } from "@devdigest/ui";
-import type { ReviewRecord, Verdict } from "@devdigest/shared";
+import { Icon, Badge, LocalTime, RunCostBadge } from "@devdigest/ui";
+import type { ReviewRecord, RunSummary, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
@@ -24,6 +24,7 @@ export function ReviewRunAccordion({
   defaultOpen = false,
   repoFullName,
   headSha,
+  run = null,
   targetRunId = null,
   targetNonce = 0,
 }: {
@@ -32,6 +33,9 @@ export function ReviewRunAccordion({
   defaultOpen?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** The agent run this review came from (matched by run_id) — supplies the
+   *  token/cost figures for the header. Null when no matching run is found. */
+  run?: RunSummary | null;
   /** When this matches review.run_id, the accordion opens and scrolls into view
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
@@ -97,6 +101,14 @@ export function ReviewRunAccordion({
           <Badge mono color="var(--text-secondary)">
             {review.score}
           </Badge>
+        )}
+        {run && run.cost_usd != null && (
+          <RunCostBadge
+            variant="compact"
+            costUsd={run.cost_usd}
+            tokensIn={run.tokens_in ?? 0}
+            tokensOut={run.tokens_out ?? 0}
+          />
         )}
         <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)" }}>
           <LocalTime iso={review.created_at} mode="datetime" />

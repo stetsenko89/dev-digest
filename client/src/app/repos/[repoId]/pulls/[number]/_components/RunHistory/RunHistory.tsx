@@ -194,6 +194,9 @@ export function RunHistory({
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
+              {r.ran_at && <span><LocalTime iso={r.ran_at} mode="time" /></span>}
               {settled && (
                 <RunCostBadge
                   variant="detailed"
@@ -202,9 +205,6 @@ export function RunHistory({
                   tokensOut={r.tokens_out ?? 0}
                 />
               )}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-              {r.ran_at && <span><LocalTime iso={r.ran_at} mode="time" /></span>}
             </div>
             <button
               type="button"
