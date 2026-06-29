@@ -5,8 +5,9 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityCounters } from "./SeverityCounters";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, ReviewRecord, RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -78,6 +79,23 @@ export function FindingsTab({
     for (const run of prRuns ?? []) m.set(run.run_id, run);
     return m;
   }, [prRuns]);
+
+  const allFindings = React.useMemo(() => runs.flatMap((r) => r.findings), [runs]);
+  const activeFindings = React.useMemo(() => allFindings.filter((f) => !f.dismissed_at), [allFindings]);
+  const counts = React.useMemo(
+    () => ({
+      CRITICAL: activeFindings.filter((f) => f.severity === "CRITICAL").length,
+      WARNING: activeFindings.filter((f) => f.severity === "WARNING").length,
+      SUGGESTION: activeFindings.filter((f) => f.severity === "SUGGESTION").length,
+    }),
+    [activeFindings],
+  );
+
+  const [sevFilter, setSevFilter] = React.useState<Severity[]>([]);
+  const toggleSev = React.useCallback(
+    (s: Severity) => setSevFilter((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])),
+    [],
+  );
 
   return (
     <section>
@@ -152,6 +170,9 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {allFindings.length > 0 && (
+        <SeverityCounters counts={counts} active={sevFilter} onToggle={toggleSev} />
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -173,6 +194,7 @@ export function FindingsTab({
             run={review.run_id ? runById.get(review.run_id) ?? null : null}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            severityFilter={sevFilter}
           />
         ))
       )}

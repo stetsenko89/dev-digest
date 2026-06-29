@@ -4,20 +4,24 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Icon, Avatar, Badge, CircularScore, RunCostBadge, RelativeTime } from "@devdigest/ui";
+import { Icon, Avatar, Badge, CircularScore, RunCostBadge, RelativeTime, SEV } from "@devdigest/ui";
+import type { Severity } from "@devdigest/shared";
 import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { sizeOf } from "../../helpers";
 import { s } from "../../styles";
+import { FindingsPopup } from "../FindingsPopup";
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
+  const [popupSev, setPopupSev] = React.useState<Severity | null>(null);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
   return (
+    <>
     <div
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
@@ -53,6 +57,46 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
           <span style={s.muted}>—</span>
         )}
       </div>
+      <div style={s.findingsCell}>
+        {(["CRITICAL", "WARNING", "SUGGESTION"] as const).map((level) => {
+          const { c, icon } = SEV[level];
+          const n = pr.findings?.[level] ?? 0;
+          const IconCmp = Icon[icon];
+          const inner = (
+            <>
+              <IconCmp size={12} />
+              <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{n}</span>
+            </>
+          );
+          if (n > 0 && pr.id) {
+            return (
+              <button
+                key={level}
+                aria-label={`Show ${SEV[level].label} findings for PR #${pr.number}`}
+                onClick={(e) => { e.stopPropagation(); setPopupSev(level); }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 2,
+                  color: c,
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
+              >
+                {inner}
+              </button>
+            );
+          }
+          return (
+            <span key={level} style={{ display: "inline-flex", alignItems: "center", gap: 2, color: "var(--text-muted)" }}>
+              {inner}
+            </span>
+          );
+        })}
+      </div>
       <div>
         <Badge dot color={st.c} bg="transparent">
           {t(`list.status.${st.labelKey}`)}
@@ -63,5 +107,14 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
       </div>
       <div style={s.updatedCell}><RelativeTime iso={pr.updated_at} /></div>
     </div>
+    {popupSev && pr.id && (
+      <FindingsPopup
+        prId={pr.id}
+        prNumber={pr.number}
+        severity={popupSev}
+        onClose={() => setPopupSev(null)}
+      />
+    )}
+    </>
   );
 }

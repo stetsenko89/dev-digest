@@ -1,128 +1,105 @@
 ---
 name: engineering-insights
-description: "Capture durable, non-obvious engineering insights into the touched module's INSIGHTS.md the moment they surface during a session. Use whenever work in server/, client/, reviewer-core/, or e2e/ reveals a gotcha, a working approach, a dead end / anti-pattern, a codebase convention, a dependency quirk, a recurring error and its fix, or an open question — and when the user says record/save/remember this insight or learning, write it down, or note this for next time. Append-only; never rewrite existing entries. Trigger terms: insight, learning, gotcha, lesson learned, INSIGHTS.md, remember this, write it down, note for next time, save this."
-metadata:
-  tags: insights, learnings, knowledge-capture, documentation, memory
+description: >
+  Captures non-obvious technical learnings from the current session and appends
+  them to INSIGHTS.md of the touched module (client/, server/, reviewer-core/).
+  Use at the end of any session >30 min where a problem was solved, a decision
+  was made, or a non-obvious pattern was discovered. Also use immediately when
+  something non-obvious happens mid-session. Trigger with /engineering-insights.
 ---
 
-# Engineering Insights
+## Language rule
 
-Persist what this session learned so the next session in the same module reads its
-own lessons. When a durable, non-obvious fact surfaces, append it to that module's
-`INSIGHTS.md`. Append-only — never edit or delete existing entries.
+**All entries in INSIGHTS.md, plans, and tasks (todos) must be written in English.**
+This ensures consistency across sessions and keeps the content searchable and readable by all contributors.
 
-## Procedure
+## What to do
 
-1. **Route to the file** — pick by the module the work touched:
+1. Identify which module(s) were touched: `client/`, `server/`, `reviewer-core/`
+2. For each module, append new entries to its `INSIGHTS.md` (create with all 7 sections if missing)
+3. At the end, summarize what was written — one line per module
 
-   | Path touched | Target file |
-   |---|---|
-   | `server/**` (incl. `src/modules/repo-intel`, `src/vendor/shared`) | `server/INSIGHTS.md` |
-   | `client/**` | `client/INSIGHTS.md` |
-   | `reviewer-core/**` | `reviewer-core/INSIGHTS.md` |
-   | `e2e/**` | `e2e/INSIGHTS.md` |
+## INSIGHTS.md structure (7 sections, create if missing)
 
-   An insight spanning two modules → write it to each relevant file.
-
-2. **Apply the quality gate (the "cold" test)** — write it ONLY if an agent reading
-   it cold knows exactly what to do or avoid without re-investigating. If it would be
-   obvious to anyone reading the code, **drop it.** One concrete fact + *why it bites*;
-   name the file/function/flag. (See examples below.)
-
-3. **Pick the section** — map the insight to one of the 7 fixed sections below.
-   *What Doesn't Work* is the most valuable and most skipped — capture dead ends.
-
-4. **Append** under that section. Never rewrite a prior entry; only extend or update
-   one to resolve a conflict or avoid a duplicate. If the file has no 7-section
-   skeleton yet, seed it from the template below first.
-
-5. **Session Notes** also get a dated `### YYYY-MM-DD` line summarizing the session
-   (use the real current date).
-
-## The 7 sections
-
-| Section | What goes in it |
-|---|---|
-| **What Works** | Approaches, patterns, and solutions proven effective here. |
-| **What Doesn't Work** | Failed approaches, dead ends, anti-patterns to avoid. *Most valuable, most skipped — don't skip it.* |
-| **Codebase Patterns** | Project-specific conventions, architecture decisions, naming patterns. |
-| **Tool & Library Notes** | Quirks, gotchas, and useful behaviors discovered about dependencies. |
-| **Recurring Errors & Fixes** | Errors hit more than once + the exact fix. |
-| **Session Notes** | Dated `### YYYY-MM-DD` summaries of what a session accomplished. |
-| **Open Questions** | Things needing more investigation or left unresolved. |
-
-## Seed skeleton (use on first write if the file lacks sections)
-
-Keep the file's existing intro line (`# <module>/ — insights` + the "durable,
-non-obvious gotchas…" paragraph). Then append the section skeleton:
-
-```markdown
+```
 ## What Works
+```
+Approaches, patterns, and solutions that worked and are worth repeating.
+Example: "Batching DB writes in chunks of 50 eliminates timeout errors on bulk import."
 
-_None yet._
-
+```
 ## What Doesn't Work
+```
+Dead ends that were tried and failed — to avoid repeating them.
+Example: "Using prisma.$transaction for >500 rows causes memory spike — avoid."
 
-_None yet._
-
+```
 ## Codebase Patterns
+```
+Non-obvious conventions and architectural decisions specific to this module.
+Example: "All route handlers must call getContext() first — skipping it breaks tenancy isolation."
 
-_None yet._
-
+```
 ## Tool & Library Notes
+```
+Quirks of specific libraries/tools that aren't obvious from their documentation.
+Example: "fastify-type-provider-zod requires z.object at the top level — z.union breaks serialization."
 
-_None yet._
-
+```
 ## Recurring Errors & Fixes
+```
+Errors that keep coming back, and their exact fix.
+Example: "Error: Cannot find module '@devdigest/reviewer-core' — check tsconfig path alias, not node_modules."
 
-_None yet._
-
+```
 ## Session Notes
+```
+Context from specific sessions: what changed, why, what trade-offs were made.
+Example: "2025-06-10: removed per-PR cost tracking — decision made to keep only model pricing for simplicity."
 
-_None yet._
-
+```
 ## Open Questions
+```
+Unresolved questions worth investigating in the future.
+Example: "Is the map-reduce threshold of 400 lines optimal? No benchmarks yet."
 
-_None yet._
+## Entry format
+
+```
+[YYYY-MM-DD] Short actionable statement. file:line or function name if relevant.
 ```
 
-When you append a real entry, replace that section's `_None yet._` with the entry
-(as a `-` bullet). Later entries are added as additional bullets — append-only.
+Place each entry under its matching section.
 
-## The quality bar: concrete, not banal
+## Quality gate — ask before every entry
 
-Every entry must be **actionable "cold"** — an agent reads it and *knows what to do*
-without re-investigating. Test: *"if it were obvious to anyone reading the code,
-don't write it."*
+**"Would this be obvious to anyone reading the code?"** → Yes: skip it.
 
-### ❌ Bad (noise)
-- "Promises can be tricky."
-- "Be careful with async."
-- "DB setup can be tricky."
+**Bad** (do not write):
+- `"Promises can be tricky"` — vague, not actionable
+- `"be careful with async"` — noise
 
-### ✅ Good (cold-readable)
-- "`Promise.all()` on the data-ingestion pipeline times out past 30 items — switch to
-  `Promise.allSettled()` with batches of max 10 for that module."
-- "Checkout-flow state must go through the Zustand `cartStore.ts` — the cart is shared
-  across 3 components; local state silently desyncs here."
+**Good** (write these):
+- `"Promise.all() on the ingestion pipeline times out after 30 items — use Promise.allSettled() with batches of 10"` — actionable cold
+- `"checkout state always goes through Zustand (cartStore.ts) because 3 components share the cart; local state breaks it"` — explains the why
 
-### ✅ Good, drawn from this repo's real gotchas
-- *(Recurring Errors & Fixes, server)* "`relation … does not exist` on first run means
-  migrations weren't applied — they are **NOT** auto-run on boot; run
-  `cd server && pnpm db:migrate`."
-- *(Codebase Patterns, reviewer-core)* "A finding that doesn't cite a real diff line is
-  dropped by the grounding gate and the score is recomputed from survivors — never
-  trust the model's self-reported score; don't weaken this gate."
-- *(Tool & Library Notes, server)* "A DB-backed test only joins the integration suite if
-  its filename ends `*.it.test.ts`; otherwise the unit/integration split silently
-  misroutes it."
+## Rules
 
-## Append-only, dedupe & size
+- **Append only.** Never overwrite. Correct with a dated note.
+- **Skip trivial sessions** (quick config edits with no discoveries).
+- **One precise entry beats five vague ones.**
+- If the file grows beyond ~200 entries, split into domain files (INSIGHTS-Auth.md, INSIGHTS-Database.md).
 
-- **Append-only.** Never edit or delete a prior entry. The one exception: extend or
-  update an existing entry to resolve a contradiction or merge a near-duplicate —
-  state the resolution explicitly rather than leaving two conflicting bullets.
-- **Don't duplicate.** Before adding, scan the target section; if it's already there,
-  extend that entry instead of adding a second.
-- **Size ceiling (~200 entries).** Past that, signal-to-noise drops — flag it for a
-  prune rather than piling on.
+## Monthly maintenance (human task, not automated)
+
+- Updated a library → delete old quirk notes for it (stale = harmful advice)
+- Contradictory entries ("always do X" / "X crashes here") → resolve explicitly with a dated note
+- Entries that turned out wrong → don't delete, mark `[SUPERSEDED YYYY-MM-DD]` so history is preserved
+- Version INSIGHTS.md in git so bad wrap-ups can be rolled back
+
+## Reading confirmation (at session start)
+
+Before starting work in a module, read its INSIGHTS.md and confirm:
+> "I've read INSIGHTS.md. The 3 most relevant points for this task are: …"
+
+This forces active processing, not silent loading, and is a sanity-check that the file was actually read.

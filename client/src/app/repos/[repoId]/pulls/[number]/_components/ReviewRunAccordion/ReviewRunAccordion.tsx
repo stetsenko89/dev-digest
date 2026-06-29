@@ -7,7 +7,7 @@
 
 import React from "react";
 import { Icon, Badge, LocalTime, RunCostBadge } from "@devdigest/ui";
-import type { ReviewRecord, RunSummary, Verdict } from "@devdigest/shared";
+import type { ReviewRecord, RunSummary, Verdict, Severity } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
@@ -27,6 +27,7 @@ export function ReviewRunAccordion({
   run = null,
   targetRunId = null,
   targetNonce = 0,
+  severityFilter = [],
 }: {
   review: ReviewRecord;
   prId: string;
@@ -40,6 +41,8 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** When non-empty, only show findings with these severities (excluding dismissed). */
+  severityFilter?: Severity[];
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -54,6 +57,14 @@ export function ReviewRunAccordion({
   const findings = review.findings;
   const blockers = findings.filter((f) => f.severity === "CRITICAL" && !f.dismissed_at).length;
   const verdictColor = review.verdict ? VERDICT_COLOR[review.verdict] ?? "var(--text-muted)" : "var(--text-muted)";
+
+  const filtering = severityFilter.length > 0;
+  const visible = filtering
+    ? findings.filter((f) => severityFilter.includes(f.severity) && !f.dismissed_at)
+    : findings;
+  const bodyOpen = filtering ? true : open;
+
+  if (filtering && visible.length === 0) return null;
 
   return (
     <div
@@ -136,11 +147,11 @@ export function ReviewRunAccordion({
         </button>
         <Icon.ChevronDown
           size={16}
-          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", color: "var(--text-muted)" }}
+          style={{ transform: bodyOpen ? "rotate(180deg)" : "none", transition: "transform .15s", color: "var(--text-muted)" }}
         />
       </div>
 
-      {open && (
+      {bodyOpen && (
         <div style={{ padding: "0 16px 16px" }}>
           {review.verdict && (
             <div style={{ marginBottom: 16 }}>
@@ -155,7 +166,7 @@ export function ReviewRunAccordion({
             </div>
           )}
           <FindingsPanel
-            findings={findings}
+            findings={visible}
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
