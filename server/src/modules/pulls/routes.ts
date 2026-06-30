@@ -111,35 +111,57 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap.
+    // Score ring + findings counts reflect each agent's LATEST review, aggregated
+    // ACROSS agents (one `kind:'review'` row exists per agent run). Score = rounded
+    // mean of the per-agent latest scores; findings = SUM across those reviews.
+    // Computed on read from reviews (no FK denorm); the list is small, so one
+    // IN-query + JS grouping is cheap.
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
-    // Also collect the latest review ID per PR so we can count findings below.
-    const latestReviewIdByPr = new Map<string, string>();
+    const scoreByPr = new Map<string, number | null>();
+    // All "latest review per agent" ids per PR — used to count findings below.
+    const latestReviewIdsByPr = new Map<string, string[]>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, id: t.reviews.id, score: t.reviews.score })
+        .select({
+          prId: t.reviews.prId,
+          id: t.reviews.id,
+          agentId: t.reviews.agentId,
+          score: t.reviews.score,
+        })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+      // Rows are newest-first → first (prId, agentId) seen is that agent's latest.
+      const seenAgent = new Set<string>();
+      const scoresByPr = new Map<string, number[]>();
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) {
-          latestReviewByPr.set(rv.prId, { score: rv.score });
-          latestReviewIdByPr.set(rv.prId, rv.id);
+        const agentKey = `${rv.prId}::${rv.agentId ?? 'null'}`;
+        if (seenAgent.has(agentKey)) continue;
+        seenAgent.add(agentKey);
+        const ids = latestReviewIdsByPr.get(rv.prId) ?? [];
+        ids.push(rv.id);
+        latestReviewIdsByPr.set(rv.prId, ids);
+        if (rv.score != null) {
+          const arr = scoresByPr.get(rv.prId) ?? [];
+          arr.push(rv.score);
+          scoresByPr.set(rv.prId, arr);
         }
+      }
+      for (const [prId, arr] of scoresByPr) {
+        scoreByPr.set(
+          prId,
+          arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null,
+        );
       }
     }
 
     // Per-PR findings counts (CRITICAL / WARNING / SUGGESTION) for the list
-    // column. Scoped to each PR's latest review, non-dismissed findings only.
+    // column. SUMMED across each agent's latest review, non-dismissed only.
     // One grouped query — not N+1.
     type SevCounts = { CRITICAL: number; WARNING: number; SUGGESTION: number };
     const findingsByPr = new Map<string, SevCounts>();
-    const latestReviewIds = [...latestReviewIdByPr.values()];
-    if (latestReviewIds.length > 0) {
+    const allLatestReviewIds = [...latestReviewIdsByPr.values()].flat();
+    if (allLatestReviewIds.length > 0) {
       const findingRows = await container.db
         .select({
           reviewId: t.findings.reviewId,
@@ -147,17 +169,17 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
           n: count(),
         })
         .from(t.findings)
-        .where(and(inArray(t.findings.reviewId, latestReviewIds), isNull(t.findings.dismissedAt)))
+        .where(and(inArray(t.findings.reviewId, allLatestReviewIds), isNull(t.findings.dismissedAt)))
         .groupBy(t.findings.reviewId, t.findings.severity);
       // Build a reviewId→prId reverse map for lookup.
       const prByReviewId = new Map<string, string>();
-      for (const [prId, reviewId] of latestReviewIdByPr) prByReviewId.set(reviewId, prId);
+      for (const [prId, ids] of latestReviewIdsByPr) for (const id of ids) prByReviewId.set(id, prId);
       for (const row of findingRows) {
         const prId = prByReviewId.get(row.reviewId);
         if (!prId) continue;
         const bucket = findingsByPr.get(prId) ?? { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
         const sev = row.severity as keyof SevCounts;
-        if (sev in bucket) bucket[sev] = row.n;
+        if (sev in bucket) bucket[sev] += row.n;
         findingsByPr.set(prId, bucket);
       }
     }
@@ -180,7 +202,6 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     const now = Date.now();
     return rows.map((r) => {
-      const review = latestReviewByPr.get(r.id);
       return {
         id: r.id,
         number: r.number,
@@ -201,7 +222,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         }),
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
-        score: review ? review.score : null,
+        score: scoreByPr.get(r.id) ?? null,
         cost_usd: costByPr.get(r.id) ?? null,
         findings: findingsByPr.get(r.id) ?? { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 },
       };

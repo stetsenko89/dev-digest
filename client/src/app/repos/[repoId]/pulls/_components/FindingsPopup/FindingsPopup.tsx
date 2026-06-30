@@ -36,14 +36,22 @@ export function FindingsPopup({
   const { data: reviews, isLoading, isError } = usePrReviews(prId);
   const ref = React.useRef<HTMLDivElement>(null);
 
-  // Match the PR-list FINDINGS column exactly: the server counts only each PR's
-  // LATEST review (newest kind:"review"), non-dismissed findings — NOT every
-  // historical review run. The /pulls/:id/reviews endpoint returns reviews
-  // newest-first, so the first kind:"review" is that latest review. Flattening
-  // across all reviews would surface stale findings from earlier generations and
-  // disagree with the count shown in the column.
-  const latestReview = (reviews ?? []).find((r) => r.kind === "review") ?? null;
-  const findings = (latestReview?.findings ?? [])
+  // Match the PR-list FINDINGS column exactly: the server sums each agent's
+  // LATEST review (newest kind:"review" per agent), non-dismissed findings — one
+  // `kind:"review"` row exists per agent run. The /pulls/:id/reviews endpoint
+  // returns reviews newest-first, so the first kind:"review" seen per agent is
+  // that agent's latest. Flattening EVERY review would surface stale findings
+  // from earlier runs and disagree with the count shown in the column.
+  const seenAgents = new Set<string>();
+  const latestPerAgent = (reviews ?? []).filter((r) => {
+    if (r.kind !== "review") return false;
+    const key = r.agent_id ?? "null";
+    if (seenAgents.has(key)) return false;
+    seenAgents.add(key);
+    return true;
+  });
+  const findings = latestPerAgent
+    .flatMap((r) => r.findings)
     .filter((f) => !f.dismissed_at)
     .sort(
       (a, b) =>
