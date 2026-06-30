@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReviewRecord } from "@devdigest/shared";
@@ -12,6 +12,8 @@ import { usePrReviews } from "../../../../../../lib/hooks/reviews";
 import { FindingsPopup } from "./FindingsPopup";
 
 afterEach(cleanup);
+
+const ANCHOR = new DOMRect(100, 200, 100, 30);
 
 const REVIEWS: ReviewRecord[] = [
   {
@@ -132,7 +134,15 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe("FindingsPopup", () => {
-  it("shows CRITICAL findings only — non-dismissed, not WARNING, not dismissed CRITICAL", () => {
+  beforeEach(() => {
+    Object.defineProperty(window, "innerWidth", {
+      writable: true,
+      configurable: true,
+      value: 1200,
+    });
+  });
+
+  it("shows all non-dismissed findings sorted by severity (CRITICAL first, then WARNING)", () => {
     vi.mocked(usePrReviews).mockReturnValue({
       data: REVIEWS,
       isLoading: false,
@@ -143,7 +153,7 @@ describe("FindingsPopup", () => {
       <FindingsPopup
         prId="pr1"
         prNumber={42}
-        severity="CRITICAL"
+        anchor={ANCHOR}
         onClose={() => {}}
       />,
     );
@@ -152,19 +162,30 @@ describe("FindingsPopup", () => {
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
     expect(screen.getByText("src/config.ts:11")).toBeInTheDocument();
 
-    // WARNING finding is NOT shown
-    expect(screen.queryByText("Inefficient loop")).not.toBeInTheDocument();
+    // WARNING finding IS also shown (all severities shown now)
+    expect(screen.getByText("Inefficient loop")).toBeInTheDocument();
 
     // Dismissed CRITICAL finding is NOT shown
     expect(screen.queryByText("Dismissed critical finding")).not.toBeInTheDocument();
 
     // A CRITICAL finding from an OLDER review run is NOT shown (latest review only)
     expect(screen.queryByText("Stale finding from an earlier run")).not.toBeInTheDocument();
+
+    // Header shows count of non-dismissed findings (2: f1 + f2)
+    expect(screen.getByText("2 findings")).toBeInTheDocument();
   });
 
-  it("shows empty state when no SUGGESTION findings exist", () => {
+  it("shows empty state when there are no non-dismissed findings", () => {
     vi.mocked(usePrReviews).mockReturnValue({
-      data: REVIEWS,
+      data: [
+        {
+          ...REVIEWS[0]!,
+          findings: REVIEWS[0]!.findings.map((f) => ({
+            ...f,
+            dismissed_at: "2024-01-02T00:00:00Z",
+          })),
+        },
+      ],
       isLoading: false,
       isError: false,
     } as ReturnType<typeof usePrReviews>);
@@ -173,12 +194,12 @@ describe("FindingsPopup", () => {
       <FindingsPopup
         prId="pr1"
         prNumber={42}
-        severity="SUGGESTION"
+        anchor={ANCHOR}
         onClose={() => {}}
       />,
     );
 
-    expect(screen.getByText("No Suggestion findings")).toBeInTheDocument();
+    expect(screen.getByText("No any findings")).toBeInTheDocument();
   });
 
   it("shows loading state", () => {
@@ -192,11 +213,72 @@ describe("FindingsPopup", () => {
       <FindingsPopup
         prId="pr1"
         prNumber={42}
-        severity="CRITICAL"
+        anchor={ANCHOR}
         onClose={() => {}}
       />,
     );
 
     expect(screen.getByText("Loading findings…")).toBeInTheDocument();
+  });
+
+  it("shows error state", () => {
+    vi.mocked(usePrReviews).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    } as ReturnType<typeof usePrReviews>);
+
+    renderWithIntl(
+      <FindingsPopup
+        prId="pr1"
+        prNumber={42}
+        anchor={ANCHOR}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("Couldn't load findings.")).toBeInTheDocument();
+  });
+
+  it("calls onClose when close button is clicked", () => {
+    vi.mocked(usePrReviews).mockReturnValue({
+      data: REVIEWS,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof usePrReviews>);
+
+    const onClose = vi.fn();
+    renderWithIntl(
+      <FindingsPopup
+        prId="pr1"
+        prNumber={42}
+        anchor={ANCHOR}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose when clicking outside the popover", () => {
+    vi.mocked(usePrReviews).mockReturnValue({
+      data: REVIEWS,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof usePrReviews>);
+
+    const onClose = vi.fn();
+    renderWithIntl(
+      <FindingsPopup
+        prId="pr1"
+        prNumber={42}
+        anchor={ANCHOR}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.mouseDown(document.body);
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

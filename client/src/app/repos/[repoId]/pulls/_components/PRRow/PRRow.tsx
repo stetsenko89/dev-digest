@@ -5,7 +5,6 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore, RunCostBadge, RelativeTime, SEV } from "@devdigest/ui";
-import type { Severity } from "@devdigest/shared";
 import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { sizeOf } from "../../helpers";
@@ -16,7 +15,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
-  const [popupSev, setPopupSev] = React.useState<Severity | null>(null);
+  const [popup, setPopup] = React.useState<DOMRect | null>(null);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
@@ -73,7 +72,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
               <button
                 key={level}
                 aria-label={`Show ${SEV[level].label} findings for PR #${pr.number}`}
-                onClick={(e) => { e.stopPropagation(); setPopupSev(level); }}
+                onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setPopup((prev) => (prev ? null : rect)); }}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -107,12 +106,12 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
       </div>
       <div style={s.updatedCell}><RelativeTime iso={pr.updated_at} /></div>
     </div>
-    {popupSev && pr.id && (
+    {popup && pr.id && (
       <FindingsPopup
         prId={pr.id}
         prNumber={pr.number}
-        severity={popupSev}
-        onClose={() => setPopupSev(null)}
+        anchor={popup}
+        onClose={() => setPopup(null)}
       />
     )}
     </>

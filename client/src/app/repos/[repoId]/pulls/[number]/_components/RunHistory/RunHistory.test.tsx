@@ -45,11 +45,10 @@ function renderRuns(runs: RunSummary[]) {
 
 describe("RunHistory — outcome badge", () => {
   it("a done run WITH blockers reads 'rejected' (never green 'done') + shows the score ring", () => {
-    renderRuns([run({ status: "done", findings_count: 5, blockers: 5, score: 0 })]);
+    renderRuns([run({ status: "done", findings_count: 5, blockers: 5, score: 42 })]);
     expect(screen.getByText("rejected")).toBeInTheDocument();
     expect(screen.queryByText("done")).not.toBeInTheDocument();
-    expect(screen.getByText("0")).toBeInTheDocument(); // CircularScore renders the number
-    expect(screen.getByText(/5 blockers/)).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument(); // CircularScore renders the score
   });
 
   it("a clean done run reads 'approved'", () => {

@@ -80,6 +80,14 @@ export function FindingsTab({
     return m;
   }, [prRuns]);
 
+  const findingsByRunId = React.useMemo(() => {
+    const m = new Map<string, FindingRecord[]>();
+    for (const r of runs) {
+      if (r.run_id) m.set(r.run_id, r.findings);
+    }
+    return m;
+  }, [runs]);
+
   const allFindings = React.useMemo(() => runs.flatMap((r) => r.findings), [runs]);
   const activeFindings = React.useMemo(() => allFindings.filter((f) => !f.dismissed_at), [allFindings]);
   const counts = React.useMemo(
@@ -160,6 +168,7 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRunId={findingsByRunId}
           />
         </div>
       )}

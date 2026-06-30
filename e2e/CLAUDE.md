@@ -24,4 +24,6 @@ Postgres). Gated by `e2e-web.yml` in CI.
 
 - Need how flows are structured / how to run them → read `e2e/README.md`.
 - Need a design note / deep dive → read `docs/`.
+- Need the exact flows under test / per-flow assertions → read `specs/` (the
+  `.flow.json` cases ARE the test specs).
 - Hit a non-obvious gotcha → record it in `INSIGHTS.md` here (don't inline above).

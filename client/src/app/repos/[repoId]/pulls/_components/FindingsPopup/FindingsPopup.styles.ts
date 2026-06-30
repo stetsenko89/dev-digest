@@ -14,7 +14,7 @@ export const s = {
   } satisfies CSSProperties,
 
   row: {
-    padding: "14px 24px",
+    padding: "10px 16px",
     borderBottom: "1px solid var(--border)",
     display: "flex",
     flexDirection: "column",
@@ -53,7 +53,7 @@ export const s = {
     lineHeight: 1.5,
     overflow: "hidden",
     display: "-webkit-box",
-    WebkitLineClamp: 1,
+    WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
