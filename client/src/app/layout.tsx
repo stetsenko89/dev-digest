@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { Providers } from "../lib/providers";
-import { themeNoFlashScript } from "../lib/theme";
+import { themeNoFlashScript } from "../lib/theme-script";
 
 export const metadata: Metadata = {
   title: "DevDigest",
@@ -17,8 +17,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} data-theme="dark" data-density="regular" suppressHydrationWarning>
       <head>
-        {/* set theme before paint to avoid FOUC */}
-        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
+        {/* set theme before paint to avoid FOUC. suppressHydrationWarning:
+            some browser extensions inject a `src`/other attribute onto this
+            inline script before React hydrates — suppress that one-level-deep
+            attribute mismatch (the __html itself is identical server/client). */}
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
       </head>
       {/* suppressHydrationWarning: browser extensions (Grammarly, translators, …)
           inject attributes like data-gr-ext-installed onto <body> before React

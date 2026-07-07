@@ -2,8 +2,9 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import { Badge, Icon, CircularScore, RunCostBadge, LocalTime, SEV, type IconName } from "@devdigest/ui";
+import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
+import { RunFindingsPopover } from "./RunFindingsPopover";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -90,6 +91,7 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRunId,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -98,8 +100,10 @@ export function RunHistory({
   /** Jump to this run's inline review accordion below (clicking the agent name). */
   onGoToReview?: (runId: string) => void;
   onDelete?: (runId: string) => void;
+  findingsByRunId?: Map<string, FindingRecord[]>;
 }) {
   const t = useTranslations("prReview");
+  const [popup, setPopup] = React.useState<{ runId: string; rect: DOMRect } | null>(null);
   if (runs.length === 0 && commits.length === 0) return null;
 
   const items: TimelineItem[] = [
@@ -139,7 +143,7 @@ export function RunHistory({
               <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>{c.author}</span>
               {c.committed_at && (
                 <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-                  {new Date(c.committed_at).toLocaleTimeString()}
+                  <LocalTime iso={c.committed_at} mode="time" />
                 </span>
               )}
             </div>
@@ -189,14 +193,55 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {(["CRITICAL", "WARNING", "SUGGESTION"] as const).map((sev) => {
+                    const { c, icon } = SEV[sev];
+                    const IconCmp = Icon[icon as IconName];
+                    const runFindings = findingsByRunId?.get(r.run_id) ?? [];
+                    const count = runFindings.filter((f) => f.severity === sev).length;
+                    const isActiveRun = popup?.runId === r.run_id;
+                    const inner = (
+                      <>
+                        <IconCmp size={11} />
+                        <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{count}</span>
+                      </>
+                    );
+                    if (count === 0) {
+                      return (
+                        <span key={sev} style={{ display: "inline-flex", alignItems: "center", gap: 2, color: "var(--text-muted)" }}>
+                          {inner}
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={sev}
+                        type="button"
+                        aria-label={`${SEV[sev].label} findings for this run`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setPopup(isActiveRun ? null : { runId: r.run_id, rect });
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 2, color: c, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}
+                      >
+                        {inner}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
-              {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
+              {r.ran_at && <span><LocalTime iso={r.ran_at} mode="time" /></span>}
+              {settled && (
+                <RunCostBadge
+                  variant="detailed"
+                  costUsd={r.cost_usd}
+                  tokensIn={r.tokens_in ?? 0}
+                  tokensOut={r.tokens_out ?? 0}
+                />
+              )}
             </div>
             <button
               type="button"
@@ -221,6 +266,13 @@ export function RunHistory({
           </div>
         );
       })}
+      {popup && (
+        <RunFindingsPopover
+          findings={findingsByRunId?.get(popup.runId) ?? []}
+          anchor={popup.rect}
+          onClose={() => setPopup(null)}
+        />
+      )}
     </div>
   );
 }

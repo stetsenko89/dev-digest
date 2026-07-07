@@ -5,8 +5,9 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityCounters } from "./SeverityCounters";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, ReviewRecord, RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -71,6 +72,39 @@ export function FindingsTab({
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
 
+  // Map run_id → run summary so each review-run header can show the token/cost
+  // figures, which live on the run (prRuns), not on the ReviewRecord.
+  const runById = React.useMemo(() => {
+    const m = new Map<string, RunSummary>();
+    for (const run of prRuns ?? []) m.set(run.run_id, run);
+    return m;
+  }, [prRuns]);
+
+  const findingsByRunId = React.useMemo(() => {
+    const m = new Map<string, FindingRecord[]>();
+    for (const r of runs) {
+      if (r.run_id) m.set(r.run_id, r.findings);
+    }
+    return m;
+  }, [runs]);
+
+  const allFindings = React.useMemo(() => runs.flatMap((r) => r.findings), [runs]);
+  const activeFindings = React.useMemo(() => allFindings.filter((f) => !f.dismissed_at), [allFindings]);
+  const counts = React.useMemo(
+    () => ({
+      CRITICAL: activeFindings.filter((f) => f.severity === "CRITICAL").length,
+      WARNING: activeFindings.filter((f) => f.severity === "WARNING").length,
+      SUGGESTION: activeFindings.filter((f) => f.severity === "SUGGESTION").length,
+    }),
+    [activeFindings],
+  );
+
+  const [sevFilter, setSevFilter] = React.useState<Severity[]>([]);
+  const toggleSev = React.useCallback(
+    (s: Severity) => setSevFilter((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])),
+    [],
+  );
+
   return (
     <section>
       {liveRunIds.length > 0 && (
@@ -134,6 +168,7 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRunId={findingsByRunId}
           />
         </div>
       )}
@@ -144,6 +179,9 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {allFindings.length > 0 && (
+        <SeverityCounters counts={counts} active={sevFilter} onToggle={toggleSev} />
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -162,8 +200,10 @@ export function FindingsTab({
             defaultOpen={i === 0}
             repoFullName={repoFullName}
             headSha={headSha}
+            run={review.run_id ? runById.get(review.run_id) ?? null : null}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            severityFilter={sevFilter}
           />
         ))
       )}

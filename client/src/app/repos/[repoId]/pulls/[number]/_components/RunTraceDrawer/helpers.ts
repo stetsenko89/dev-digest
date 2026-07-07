@@ -26,3 +26,10 @@ export function formatSeconds(ms: number): string {
 export function formatTokens(tokensIn: number, tokensOut: number): string {
   return `${(tokensIn / 1000).toFixed(0)}k→${(tokensOut / 1000).toFixed(1)}k`;
 }
+
+/** USD cost formatted to 4 significant figures, or "—" when null/undefined. */
+export function formatCost(usd: number | null | undefined): string {
+  if (usd == null) return "—";
+  if (usd === 0) return "—";
+  return `$${usd.toPrecision(4)}`;
+}
